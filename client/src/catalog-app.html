@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro|Source+Sans+Pro" rel="stylesheet">
 
 <link rel="import" href="lazy-block.html">
+<link rel="import" href="catalog-search-box.html">
 
 <dom-module id="catalog-app">
   <template>
@@ -75,7 +76,6 @@
         @apply(--layout-fixed-top);
         z-index: 1;
         background-color: var(--theme-accent-1);
-        color: white;
       }
 
       app-toolbar {
@@ -84,13 +84,12 @@
       }
 
       #search-box {
-        box-sizing: border-box;
         width: 500px;
-        height: 40px;
         font-family: var(--theme-font);
         font-size: 16px;
-        padding: 12px;
-        border: 1px solid #ededed;
+        position: absolute;
+        top: 10px;
+        background: white;
         border-radius: 4px;
       }
 
@@ -123,11 +122,10 @@
 
     <lazy-block id="block"></lazy-block>
 
-    <search-focus id="search-focus" base-urls="[[baseUrls(queryParams)]]"></search-focus>
 
     <app-header role="navigation" reveals>
       <app-toolbar id="toolbar">
-        <input id="search-box" placeholder="Search webcomponents.org" on-click="_loadSearch"></input>
+        <catalog-search-box id="search-box" base-urls="[[baseUrls(queryParams)]]"></catalog-search-box>
       </app-toolbar>
     </app-header>
 
@@ -257,15 +255,7 @@
       },
 
       _handleSearch: function(event) {
-        this._loadSearch();
-        this.$['search-focus'].query = event.detail.query;
-      },
-
-      _loadSearch: function() {
-        this.importHref(this.resolveUrl('search-focus.html'), function() {
-          var offsetLeft = this.$['search-box'].offsetLeft + this.$.toolbar.offsetLeft;
-          this.$['search-focus'].open(offsetLeft, this.$['search-box'].offsetTop);
-        });
+        this.$['search-box'].query = event.detail.query;
       },
 
     });

@@ -3,22 +3,9 @@
 <link rel="import" href="../bower_components/iron-list/iron-list.html">
 <link rel="import" href="../bower_components/iron-scroll-threshold/iron-scroll-threshold.html">
 
-<dom-module id="search-focus">
+<dom-module id="catalog-search-box">
   <template>
     <style>
-      catalog-dialog {
-        border-radius: 4px;
-        position: fixed;
-        margin: 0;
-        top: 0;
-        left: 0;
-        overflow: hidden;
-        font-family: var(--theme-font);
-        font-size: 16px;
-        line-height: 24px;
-        overflow: overlay;
-      }
-
       a {
         color: inherit;
         text-decoration: none;
@@ -71,9 +58,8 @@
         border-top: 1px solid #ededed;
       }
 
-      iron-scroll-threshold {
-        position: absolute;
-        background: white;
+      :host.expanded {
+        box-shadow: 0px 0px 25px #333333;
       }
 
       @media (max-width: 500px), (max-height: 500px) {
@@ -109,66 +95,116 @@
       on-request="_handleRequest"
       debounce-duration="300"></iron-ajax>
 
-      <input type="search" id="search-box" on-keyup="_onSearchKeyUp" placeholder="Search webcomponents.org"></input>
+    <input type="search" id="search-box" on-input="_triggerSearch" placeholder="Search webcomponents.org"></input>
 
-      <iron-scroll-threshold on-lower-threshold="_loadMoreResults" id="threshold" lower-threshold="200">
-        <div id="collections">
-          <template is="dom-repeat" items="[[_collections.results]]">
-            <a href="/collection/[[item.owner]]/[[item.repo]]" on-click="close">
-              <div class="collection">
-                <div class="title"><span class="owner">[[item.owner]]</span>/[[item.repo]]</div>
-                <div class="description">[[item.description]]</div>
-              </div>
-            </a>
-          </template>
-        </div>
-        <iron-list id="resultsList" items="[[_results]]" as="item" scroll-target="threshold">
-          <template>
-            <a href="/element/[[item.owner]]/[[item.repo]]" tabindex$="[[tabIndex]]" on-click="close">
-              <div class="element">
-                <div class="title"><span class="owner">[[item.owner]]</span>/[[item.repo]]</div>
-                <div class="description">[[item.description]]</div>
-              </div>
-            </a>
-          </template>
-        </iron-list>
-      </iron-scroll-threshold>
+    <iron-scroll-threshold on-lower-threshold="_loadMoreResults" id="threshold" lower-threshold="200">
+      <div id="collections">
+        <template is="dom-repeat" items="[[_collections.results]]">
+          <a href="/collection/[[item.owner]]/[[item.repo]]" on-click="close">
+            <div class="collection">
+              <div class="title"><span class="owner">[[item.owner]]</span>/[[item.repo]]</div>
+              <div class="description">[[item.description]]</div>
+            </div>
+          </a>
+        </template>
+      </div>
+      <iron-list id="resultsList" items="[[_results]]" as="item" scroll-target="threshold">
+        <template>
+          <a href="/element/[[item.owner]]/[[item.repo]]" tabindex$="[[tabIndex]]" on-click="close">
+            <div class="element">
+              <div class="title"><span class="owner">[[item.owner]]</span>/[[item.repo]]</div>
+              <div class="description">[[item.description]]</div>
+            </div>
+          </a>
+        </template>
+      </iron-list>
+    </iron-scroll-threshold>
 
   </template>
 
   <script>
     Polymer({
 
-      is: 'search-focus',
+      is: 'catalog-search-box',
 
       properties: {
         baseUrls: Object,
 
         query: String,
 
-        _requestParams: Object
+        _requestParams: Object,
       },
 
       observers: [
         '_queryChanged(query)'
       ],
 
-      open: function(left, top) {
-        this.$['search-box'].select();
+      ready: function() {
+        var focused = false;
+        var focusListener = function(e) {
+          if (focused) {
+            return;
+          }
+          focused = true;
+          this._onFocus();
+        }.bind(this)
+        var blurListener = function(e) {
+          var target = e.target;
+          focused = false;
+          this.async(function() {
+            if (!focused)
+              this._onBlur();
+          }, 1);
+        }.bind(this);
 
-        if (window.matchMedia("(max-width: 500px), (max-height: 500px)").matches)
-          return;
+        this.addEventListener('focus', focusListener, true);
+        this.addEventListener('blur', blurListener, true);
       },
 
-      close: function() {
+      ___ready: function() {
+        var focused = false;
+        var localListener = function(e) {
+          if (focused) {
+            return;
+          }
+          focused = true;
+          document.addEventListener('focus', documentListener, true);
+          this._onFocus();
+        }.bind(this)
+        var documentListener = function(e) {
+          var target = e.target;
+          while (target && target != this) {
+            if (target instanceof DocumentFragment && target.host) {
+              target = target.host;
+            } else {
+              target = Polymer.dom(target).parentNode;
+            }
+          }
+          if (target != this) {
+            focused = false;
+            this._onBlur();
+            document.removeEventListener('focus', documentListener, true);
+          }
+        }.bind(this);
+
+        this.addEventListener('focus', localListener, true);
+      },
+
+      _onFocus: function() {
+console.log('focused!');
+      },
+
+      _onBlur: function() {
+console.log('blur!');
       },
 
       _queryChanged: function(query) {
+        this.$['search-box'].focus();
         this.$['search-box'].value = query;
-        this._onSearchKeyUp();
+        this.triggerSearch();
       },
 
-      _onSearchKeyUp: function() {
+      _triggerSearch: function() {
         var query = this.$['search-box'].value;
         if (query == this._query)
           return;
@@ -179,6 +215,7 @@
         }
         this._query = query;
         this._results = [];
+        this.classList.remove('expanded');
         this._generateSearch();
       },
 
@@ -209,6 +246,7 @@
 
         var scrollTop = this.$.threshold.scrollTop;
         this._results = this._results.concat(response.results);
+        this.classList.add('expanded');
         Polymer.dom.flush();
         this.$.threshold.scroll(0, scrollTop);
         this.$.threshold.clearTriggers();
@@ -224,3 +262,4 @@
     });
   </script>
 </dom-module>
+
